@@ -31,39 +31,44 @@ app.get('/all-animals', (req, res) => {
 });
 
 app.get('/animal-details/:animalId', (req, res) => {
-  res.render('animal-details.html.njk', { animal: stuffedAnimalData.elephant });
+  let animalId= getAnimalDetails(req.params.animalId);
+  res.render('animal-details.html.njk', { animal: animalId });
 });
 
 app.get('/add-to-cart/:animalId', (req, res) => {
-  // TODO: Finish add to cart functionality
-  // The logic here should be something like:
-  // - check if a "cart" exists in the session, and create one (an empty
-  // object keyed to the string "cart") if not
-  // - check if the desired animal id is in the cart, and if not, put it in
-  // - increment the count for that animal id by 1
-  // - redirect the user to the cart page
+  let animalId = req.params.animalId
+  let sessionCart = req.session;
+  if(!sessionCart.hasOwnProperty('cart')){
+    sessionCart.cart = {};
+  }
+  if(!(animalId in sessionCart.cart)){
+    sessionCart.cart[animalId] = 0 
+  } 
+    sessionCart.cart[animalId] += 1
+    res.redirect('/cart')
+
 });
 
 app.get('/cart', (req, res) => {
   // TODO: Display the contents of the shopping cart.
+  const username = req.session.username;
+  let cart = req.session.cart;
+  let animalArray = [];
+  let totalCost = 0;
 
-  // The logic here will be something like:
 
-  // - get the cart object from the session
-  // - create an array to hold the animals in the cart, and a variable to hold the total
-  // cost of the order
-  // - loop over the cart object, and for each animal id:
-  //   - get the animal object by calling getAnimalDetails
-  //   - compute the total cost for that type of animal
-  //   - add this to the order total
-  //   - add quantity and total cost as properties on the animal object
-  //   - add the animal object to the array created above
-  // - pass the total order cost and the array of animal objects to the template
+  for(let animal in cart){
+    const details = getAnimalDetails(animal)
+    const qty = cart[animal]
+    const subtotal = qty * details.price
+    details.qty = qty
+    details.subtotal = subtotal
 
-  // Make sure your function can also handle the case where no cart has
-  // been added to the session
+    totalCost += subtotal
+    animalArray.push(details);
+  }
 
-  res.render('cart.html.njk');
+  res.render('cart.html.njk', {animals: animalArray, totalCost: totalCost, username: username});
 });
 
 app.get('/checkout', (req, res) => {
@@ -73,13 +78,29 @@ app.get('/checkout', (req, res) => {
 });
 
 app.get('/login', (req, res) => {
-  // TODO: Implement this
-  res.send('Login has not been implemented yet!');
+  res.render('login.html.njk');
 });
 
+app.get('/logout', (req, res) => {
+  req.session.destroy((err) => {
+      if(err){
+          console.log(err);
+      }
+      res.redirect('/')
+  })
+})
+
 app.post('/process-login', (req, res) => {
-  // TODO: Implement this
-  res.send('Login has not been implemented yet!');
+  req.session.username = req.body.username;
+  req.session.password = req.body.password;
+
+  const userIdx = users.find(({ username }) => username === req.session.username);
+  if(userIdx.password === req.session.password){
+    res.redirect('/all-animals');
+  }
+  else {
+    res.send(`No account with username ${req.session.username} or password doesn't match`)
+  }
 });
 
 app.listen(port, () => {
